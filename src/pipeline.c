@@ -1,9 +1,10 @@
 #include <stdio.h>
+#include <string.h>
+#include <unistd.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include "../include/image.h"
 #include "../include/utils.h"
-
 #include "../include/pipeline.h"
 
 
@@ -140,20 +141,19 @@ uint8_t laplace(uint8_t * p,int i,int j,Image*img,Config*c){
  * @param c Configuracion
  * @param img Estructura imagen
  */
-void rgb_to_grayscale(Config * c,Image *img){
+Image rgb_to_grayscale(Config * c,Image img){
     // Inicializa las variables
-    int img_size = img->width*img->height*img->channels; //Tamaño de la imagen
-    int gray_channels = img->channels == 4 ? 2 : 1; // Nuevos canales
-    int gray_img_size = img->width*img->height*gray_channels; //Tamaño de la imagen usando los nuevos canales
+    int img_size = img.width*img.height*img.channels; //Tamaño de la imagen
+    int gray_channels = img.channels == 4 ? 2 : 1; // Nuevos canales
+    int gray_img_size = img.width*img.height*gray_channels; //Tamaño de la imagen usando los nuevos canales
     uint8_t *gray_img = malloc(sizeof(uint8_t)*gray_img_size); //Asignar la memoria para la nueva imagen
     //Recorriendo la imagen
     //Idea extraida del video: https://solarianprogrammer.com/2019/06/10/c-programming-reading-writing-images-stb_image-libraries/
-    for(uint8_t *p = img->data, *pg = gray_img; p != img->data + img_size; p+= img->channels, pg+= gray_channels){
+    for(uint8_t *p = img.data, *pg = gray_img; p != img.data + img_size; p+= img.channels, pg+= gray_channels){
         *pg = (uint8_t)((*p)*0.3 + (*p + 1)*0.59 + (*p+2)*0.11);
     }
-    stbi_image_free(img->data); // Liberación de memoria
-    img->data = gray_img; // Asignación de la nueva imagen
-    img->channels = gray_channels;// Asignación de los nuevos canales
+    strcpy(img.data,gray_img);
+    return img;
 }
 
 
@@ -163,24 +163,24 @@ void rgb_to_grayscale(Config * c,Image *img){
  * @param c Estructura configuracion
  * @param img Estructura imagen
  */
-void apply_lap_filter(Config * c,Image *img){
-    int img_size = img->width*img->height*img->channels; //Tamaño de la imagen
+Image apply_lap_filter(Config * c,Image img){
+    int img_size = img.width*img.height*img.channels; //Tamaño de la imagen
     uint8_t *lap_img = malloc(sizeof(uint8_t)*img_size); //Asignar la memoria para la nueva imagen
     //Recorriendo la imagen
-    uint8_t *p = img->data;
+    uint8_t *p = img.data;
     uint8_t *pg = lap_img;
-    for (int j = 0; j < img->height; j++)
+    for (int j = 0; j < img.height; j++)
     {
-        for (int i = 0; i < img->width; i++)
+        for (int i = 0; i < img.width; i++)
         {
-            *pg = laplace(p,i,j,img,c);
-            p+= img->channels;
-            pg+= img->channels;
+            *pg = laplace(p,i,j,&img,c);
+            p+= img.channels;
+            pg+= img.channels;
         }
         
     }
-    stbi_image_free(img->data);  // Liberación de memoria
-    img->data = lap_img; // Asignación de la nueva imagen
+    strcpy(img.data,lap_img);
+    return img;
 }
 
 /**
@@ -189,13 +189,13 @@ void apply_lap_filter(Config * c,Image *img){
  * @param c Estructura configuración
  * @param img Estructura imagen
  */
-void apply_binary(Config * c,Image *img){
+Image apply_binary(Config * c,Image  img){
     
-    int img_size = img->width*img->height*img->channels; //Tamaño de la imagen
+    int img_size = img.width*img.height*img.channels; //Tamaño de la imagen
     uint8_t *binary_img = malloc(sizeof(uint8_t)*img_size); //Asignar la memoria para la nueva imagen
     //Recorriendo la imagen
     //Idea extraida del video: https://solarianprogrammer.com/2019/06/10/c-programming-reading-writing-images-stb_image-libraries/
-    for(uint8_t *p = img->data, *pg = binary_img; p != img->data + img_size; p+= img->channels, pg+= img->channels){
+    for(uint8_t *p = img.data, *pg = binary_img; p != img.data + img_size; p+= img.channels, pg+= img.channels){
         //Si el valor del pixel es mayor al umbral asignarlo a 255 sino asignarlo a 0
         if(*p > c->bin_threshold){
             *pg = (uint8_t)255; 
@@ -204,8 +204,8 @@ void apply_binary(Config * c,Image *img){
             *pg = (uint8_t)0;
         }
     }
-    free(img->data); // Liberación de memoria
-    img->data = binary_img; // Asignación de la nueva imagen
+    strcpy(img.data,binary_img);
+    return img;
 }
 
 /**
@@ -214,24 +214,82 @@ void apply_binary(Config * c,Image *img){
  * 
  * @param c Estructura de configuracion
  * @param img Estructura Imagen
- * @return int Si es suficientemente negra devuelve 1 de lo contrario 0
  */
-int rate(Config * c,Image *img){
-    int img_size = img->width*img->height*img->channels; //Tamaño de la imagen
+Image rate(Config * c,Image img){
+    int img_size = img.width*img.height*img.channels; //Tamaño de la imagen
     int black_count = 0; // Contador
-    for(uint8_t *p = img->data; p != img->data + img_size; p+= img->channels){
+    for(uint8_t *p = img.data; p != img.data + img_size; p+= img.channels){
         //Si es negro suma al contador
         if(*p == 0){
             black_count+=1; 
         }
     }
     // Si el porcentaje de pixeles negros es mayor o igual al umbral devuelve 1
-    if((black_count*100.0/img->width*img->height) >= c->rating_threshold){
-        return 1;
+    if((black_count*100.0/img.width*img.height) >= c->rating_threshold){
+        c->rate = 1;
     }
-    else{
-        return 0;
-    }
+    return img;
+}
 
+int main(int argc, char const *argv[])
+{
+    char buff[1000000] = {'\0'};
+    Config*c = load_config(argc,argv);
+    read(STDIN_FILENO,buff,1000000);
+    Image i = deserialize_image(buff); // Deserializando la imagen 
+    printf("Imagen recibida de proceso padre: %s,%d\n",i.filename,i.stage);
+    int fd[2];
+    if(pipe(fd) == 0){
+        // Se supone que aquí la función realizará lo que corresponda a la imagen según la etapa    
+        Image out;
+        if(i.stage == 0){
+            out = open_image(i);
+        }
+        else if(i.stage == 1){
+            out = rgb_to_grayscale(c,i);
+        }
+        else if(i.stage == 2){
+            out = apply_lap_filter(c,i);
+        }
+        else if(i.stage == 3){
+            out = apply_binary(c,i);
+        }
+        else if(i.stage == 4){
+            out = rate(c,i);
+        }
+        else{
+            write_image(i);
+            return 0;   
+        }
+
+
+
+
+        out.stage++;
+        int size = 8*sizeof(int) + 30*sizeof(char) + out.width*out.height+out.channels;
+        
+        
+        pid_t pid = fork();
+        if(pid < 0){
+            printf("ERROR");
+            exit(1);
+        }
+        else if(pid == 0){
+            
+            close(fd[1]);
+            dup2(fd[0],STDIN_FILENO);
+            argv[0] = "pipe";
+            execv("pipe",argv); // Se vuelve a llamar al mismo archivo
+            
+        }
+        else{
+            close(fd[0]);
+            char * img_serialized = serialize_image(out); //Serializando la imagen
+            write(fd[1],img_serialized,size);  // ENVIANDO IMAGEN SERIALIZADA
+            printf("PROCESO PADRE");
+        }
+    }
+    return 0;
+    
 }
 

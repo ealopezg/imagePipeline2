@@ -1,48 +1,46 @@
-#include<stdio.h>
-#include<unistd.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
 #include <stdint.h>
-#include "../include/image.h"
+#include <stdlib.h>
 #include "../include/utils.h"
-#include "../include/pipeline.h"
+#include "../include/image.h"
 
 #define DEBUG 1 //DEJAR EN 1 PARA QUE NO SE SOBREESCRIBA LA IMAGEN
 
 
 int main(int argc, char const *argv[])
 {
-    Image * img;
     Config * c = load_config(argc,argv); //Carga de configuracion
-    int nb = 0;
     if(c != NULL){
         if(read_lap_mask(c)){
             char filename[30];
-            int i = 0;
             if(c->show) {
                 printf("|       image      |     nearly black    |\n|------------------|---------------------|\n");
             }
             for (int i = 0; i < c->images; i++)
             {
-                sprintf(filename,"imagen_%d.jpg",i+1); //Genera el nombre de la imagen
-                img = open_image(filename); //Abre la imagen
-                if(img != NULL){ //Si la imagen se abrió correctamente corre el pipeline
-                    rgb_to_grayscale(c,img);
-                    apply_lap_filter(c,img);
-                    apply_binary(c,img);
-                    nb=rate(c,img);
-                    //Se muestra el resultado por pantalla
-                    if(c->show){
-                        printf("|   %s   |         %s         |\n",filename,(nb ? "yes" : "no"));
+                
+                int fd[2];
+                if(pipe(fd)==0){
+                    sprintf(filename,"imagen_%d.jpg",i+1); //Genera el nombre de la imagen
+                    Image img = empty_image(filename);
+                    int size = 8*sizeof(int) + 30*sizeof(char) + img.width*img.height+img.channels;
+                    char * img_serialized = serialize_image(img);
+                    write(fd[1],img_serialized,size);
+                    close(fd[1]);
+                    pid_t pid = fork();
+                    if(pid < 0){
+                        exit(1);
                     }
-                    //Se vuelve a guardar la imagen
-                    if(DEBUG){
-                        sprintf(filename,"imagen_%d_edit.jpg",i+1); //Si la bandera DEBUG está activada se le cambia el nombre a la imagen, de lo contrario se reemplaza.
+                    else if(pid == 0){
+                        close(fd[1]);
+                        dup2(fd[0],STDIN_FILENO);
+                        argv[0] = "pipe";
+                        execv("pipe",argv);
                     }
-                    write_image(filename,img);
-                    free_image(img);
-                }
-                else{
-                    printf("El archivo %s no se puede abrir o no existe!\n",filename);
-                }
+                }          
+                
             }
         }
         else{

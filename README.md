@@ -3,7 +3,7 @@ Image Pipeline 2
 
 To run:
 ```
-make && ./pipeline.out -c N_IMAGES -u BINARY_THRESHOLD -n RATE_THRESHOLD -m TEXT_FILE_NAME -b
+make && ./pipeline -c N_IMAGES -u BINARY_THRESHOLD -n RATE_THRESHOLD -m TEXT_FILE_NAME -b
 ```
 Where:
 * N_IMAGES: Integer with the number of images to use with the pipeline (1...*)
@@ -18,8 +18,8 @@ Where:
 
 All the images has to be in the project root, with naming like "Imagen_1.jpg","Imagen_2.jpg","Imagen_3.jpg",etc.
 
-This project uses the library [STB](https://github.com/nothings/stb). And the makefile created by [Nicolas Gutierrez](https://github.com/ngutierrezp/Makefile).
+This project uses the library [STB](https://github.com/nothings/stb). 
 
 
-Project Page on Github [ealopezg/imagePipeline](https://github.com/ealopezg/imagePipeline)
+Project Page on Github [ealopezg/imagePipeline](https://github.com/ealopezg/imagePipeline2)
 

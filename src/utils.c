@@ -3,6 +3,7 @@
 #include<stdlib.h>
 #include<string.h>
 #include "../include/utils.h"
+#include "../include/image.h"
 
 
 /**
@@ -32,6 +33,7 @@ Config* load_config(int argc, char const *argv[]){
     config->lap_mask_file_name = NULL;
     int existLap_mask_file_name = 0;
     config->show = 0;
+    config->rate = 0;
     int c;
 
     while ((c = getopt(argc,argv,"c:u:n:m:b")) != -1)
@@ -85,7 +87,6 @@ int read_lap_mask(Config *c){
     }
     int lap_mask[9];
     int i = 0;
-    int j = 0;
     char * token;
     // Va leyendo linea por linea y separa la linea en 3
     while (fgets(str, 10000, fp) != NULL){
@@ -112,6 +113,4 @@ int read_lap_mask(Config *c){
     
     return 1;
 }
-
-
 
